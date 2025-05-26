@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multilingual News App</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>News App</h1>
+            <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+        </header>
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="Search for news...">
+            <button onclick="searchNews()">🔍</button>
+        </div>
+        <div class="language-selector">
+            <select id="languageSelect" onchange="fetchNews()">
+                <option value="en">English</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+                <option value="es">Spanish</option>
+                <option value="zh">Chinese</option>
+                <option value="hi">Hindi</option>
+                <option value="bn">Bengali</option>
+            </select>
+        </div>
+        <div class="categories">
+            <button class="category-btn active" onclick="fetchNews('top-headlines')">Top</button>
+            <button class="category-btn" onclick="fetchNews('technology')">Tech</button>
+            <button class="category-btn" onclick="fetchNews('business')">Business</button>
+            <button class="category-btn" onclick="fetchNews('sports')">Sports</button>
+            <button class="category-btn" onclick="fetchNews('entertainment')">Entertainment</button>
+        </div>
+        <div id="newsContainer" class="news-container"></div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
