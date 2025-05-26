@@ -1,57 +1,71 @@
+// API Configuration
 const apiKey = "29afa269d3f8b8467fc2fd4b2e61f76c"; // Your GNews API key
+const apiBaseUrl = "https://gnews.io/api/v4/";
+
+// DOM Elements
 const newsContainer = document.getElementById("newsContainer");
 const searchInput = document.getElementById("searchInput");
 const languageSelect = document.getElementById("languageSelect");
 const categoryButtons = document.querySelectorAll(".category-btn");
 
-const apiBaseUrl = "https://gnews.io/api/v4/";
-
-// Mock response for testing in HTML Editor
+// Mock Data for Testing in HTML Editor
 const mockResponse = {
     articles: [
         {
             title: "Sample News Article 1",
             description: "This is a sample news article for testing purposes.",
             url: "https://example.com/article1",
-            urlToImage: "https://via.placeholder.com/300x160?text=Sample+Image+1"
+            urlToImage: "https://via.placeholder.com/300x160?text=Sample+Image+1",
+            publishedAt: "2025-05-26T08:08:00Z"
         },
         {
             title: "Sample News Article 2",
             description: "Another sample news article for testing.",
             url: "https://example.com/article2",
-            urlToImage: "https://via.placeholder.com/300x160?text=Sample+Image+2"
+            urlToImage: "https://via.placeholder.com/300x160?text=Sample+Image+2",
+            publishedAt: "2025-05-26T08:08:00Z"
         }
     ]
 };
 
-// Mock Bengali response for testing
+// Mock Bengali Response
 const mockBengaliResponse = {
     articles: [
         {
             title: "নমুনা সংবাদ নিবন্ধ ১",
             description: "এটি পরীক্ষার জন্য একটি নমুনা সংবাদ নিবন্ধ।",
             url: "https://example.com/bengali-article1",
-            urlToImage: "https://via.placeholder.com/300x160?text=Sample+Bengali+Image+1"
+            urlToImage: "https://via.placeholder.com/300x160?text=Sample+Bengali+Image+1",
+            publishedAt: "2025-05-26T08:08:00Z"
         },
         {
             title: "নমুনা সংবাদ নিবন্ধ ২",
             description: "আরেকটি নমুনা সংবাদ নিবন্ধ পরীক্ষার জন্য।",
             url: "https://example.com/bengali-article2",
-            urlToImage: "https://via.placeholder.com/300x160?text=Sample+Bengali+Image+2"
+            urlToImage: "https://via.placeholder.com/300x160?text=Sample+Bengali+Image+2",
+            publishedAt: "2025-05-26T08:08:00Z"
         }
     ]
 };
 
+// State
 let page = 1;
+let currentQuery = "top-headlines";
 
+// Fetch News Function
 async function fetchNews(query = "top-headlines", pageNum = 1, retries = 2) {
+    // Validate DOM Elements
     if (!newsContainer || !searchInput || !languageSelect) {
-        console.error("DOM elements not found: newsContainer, searchInput, or languageSelect is null");
-        newsContainer.innerHTML = '<p class="error">App initialization failed</p>';
+        console.error("DOM elements not found:", { newsContainer, searchInput, languageSelect });
+        document.body.innerHTML = '<p class="error">App initialization failed: DOM elements missing.</p>';
         return;
     }
 
-    newsContainer.innerHTML = '<p class="loading">Loading...</p>';
+    // Update State
+    currentQuery = query;
+    if (pageNum === 1) {
+        newsContainer.innerHTML = '<p class="loading">Loading...</p>';
+    }
     updateActiveCategory(query);
 
     const lang = languageSelect.value;
@@ -65,6 +79,7 @@ async function fetchNews(query = "top-headlines", pageNum = 1, retries = 2) {
         url += `&q=${encodeURIComponent("বাংলা")}`;
     }
 
+    // Attempt to Fetch News
     for (let i = 0; i <= retries; i++) {
         try {
             console.log(`Attempt ${i + 1}/${retries + 1} - Fetching news from:`, url.replace(apiKey, "HIDDEN_API_KEY"));
@@ -74,56 +89,52 @@ async function fetchNews(query = "top-headlines", pageNum = 1, retries = 2) {
                     "X-Requested-With": "XMLHttpRequest"
                 }
             });
+
             if (!response.ok) {
                 throw new Error(`HTTP error! Status: ${response.status}`);
             }
+
             const data = await response.json();
+            console.log("API Response:", data);
 
             if (data.articles?.length > 0) {
-                displayNews(data.articles);
-                // Add Load More button if more pages might be available
-                if (data.articles.length >= 10) {
-                    newsContainer.innerHTML += `<button class="load-more" onclick="fetchNews('${query}', ${pageNum + 1})">Load More</button>`;
-                }
+                displayNews(data.articles, pageNum);
                 return;
             } else {
-                throw new Error("No news found.");
+                throw new Error("No news articles found in the response.");
             }
         } catch (error) {
             console.error("Fetch error:", error.message);
             if (i === retries) {
+                const mockData = lang === "bn" ? mockBengaliResponse.articles : mockResponse.articles;
+                let errorMessage = "Error fetching news: " + error.message;
                 if (error.message.includes("403") || error.message.includes("429")) {
-                    console.warn("403/429 Error: Likely API restrictions or rate limit. Using mock data for testing.");
-                    const mockData = lang === "bn" ? mockBengaliResponse.articles : mockResponse.articles;
-                    newsContainer.innerHTML = `
-                        <p class="error">
-                            API Error (${error.message.includes("403") ? "403 Forbidden" : "429 Too Many Requests"}): Test in a browser or local server for live data.<br>
-                            Possible causes: Rate limit (100 requests/day), non-browser environment (HTML Editor), or API restrictions.<br>
-                            Using mock data for now.
-                        </p>
-                        <button class="retry-btn" onclick="fetchNews('${query}', ${pageNum})">Retry</button>
-                    `;
-                    displayNews(mockData);
-                } else {
-                    newsContainer.innerHTML = `
-                        <p class="error">Error fetching news: ${error.message}</p>
-                        <button class="retry-btn" onclick="fetchNews('${query}', ${pageNum})">Retry</button>
+                    errorMessage = `
+                        API Error (${error.message.includes("403") ? "403 Forbidden" : "429 Too Many Requests"}): Test in a browser or local server for live data.<br>
+                        Possible causes: Rate limit (100 requests/day) exceeded, non-browser environment (HTML Editor), or API restrictions.<br>
+                        Using mock data for now. Rate limit resets on May 27, 2025.
                     `;
                 }
+                newsContainer.innerHTML = `
+                    <p class="error">${errorMessage}</p>
+                    <button class="retry-btn" onclick="fetchNews('${query}', ${pageNum})">Retry</button>
+                `;
+                displayNews(mockData, pageNum);
             }
             console.warn(`Retry ${i + 1}/${retries} failed: ${error.message}`);
         }
     }
 }
 
-function displayNews(articles) {
+// Display News Articles
+function displayNews(articles, pageNum) {
     if (!newsContainer) {
         console.error("newsContainer is null");
         return;
     }
 
-    // Only clear if it's the first page
-    if (page === 1) {
+    // Clear container only on the first page
+    if (pageNum === 1) {
         newsContainer.innerHTML = "";
     }
 
@@ -136,21 +147,34 @@ function displayNews(articles) {
         const newsCard = document.createElement("div");
         newsCard.classList.add("news-card");
         newsCard.style.animationDelay = `${index * 0.1}s`;
-        const imageUrl = article.urlToImage || "https://via.placeholder.com/300x160?text=No+Image";
+
+        const imageUrl = article.urlToImage || article.image || "https://via.placeholder.com/300x160?text=No+Image";
+        const description = article.description || article.content || "No description available.";
+        const title = article.title || "Untitled Article";
 
         newsCard.innerHTML = `
-            <img src="${imageUrl}" alt="${article.title}" loading="lazy">
+            <img src="${imageUrl}" alt="${title}" loading="lazy" onerror="this.src='https://via.placeholder.com/300x160?text=Image+Failed'">
             <div class="news-card-content">
-                <h3>${article.title}</h3>
-                <p>${article.description || "No description available."}</p>
+                <h3>${title}</h3>
+                <p>${description.slice(0, 150)}${description.length > 150 ? "..." : ""}</p>
                 <a href="${article.url}" target="_blank">Read more</a>
-                <button class="share-btn" onclick="shareArticle('${article.title}', '${article.url}')">Share</button>
+                <button class="share-btn" onclick="shareArticle('${title}', '${article.url}')">Share</button>
             </div>
         `;
         newsContainer.appendChild(newsCard);
     });
+
+    // Add Load More button if more articles might be available
+    if (articles.length >= 10) {
+        const loadMoreButton = document.createElement("button");
+        loadMoreButton.classList.add("load-more");
+        loadMoreButton.textContent = "Load More";
+        loadMoreButton.onclick = () => fetchNews(currentQuery, pageNum + 1);
+        newsContainer.appendChild(loadMoreButton);
+    }
 }
 
+// Share Article Function
 function shareArticle(title, url) {
     if (navigator.share) {
         navigator.share({
@@ -171,17 +195,19 @@ function shareArticle(title, url) {
     }
 }
 
+// Search News Function
 function searchNews() {
     if (!searchInput) {
         console.error("searchInput is null");
         return;
     }
     const query = searchInput.value.trim();
-    page = 1; // Reset page on new search
+    page = 1;
     fetchNews(query || "top-headlines", page);
     searchInput.value = "";
 }
 
+// Update Active Category
 function updateActiveCategory(query) {
     if (!categoryButtons) {
         console.error("categoryButtons not found");
@@ -195,11 +221,13 @@ function updateActiveCategory(query) {
     });
 }
 
+// Toggle Theme
 function toggleTheme() {
     document.body.classList.toggle("dark-mode");
     localStorage.setItem("theme", document.body.classList.contains("dark-mode") ? "dark" : "light");
 }
 
+// Pull-to-Refresh
 function handlePullToRefresh() {
     let touchStartY = 0;
     document.addEventListener("touchstart", (e) => {
@@ -215,19 +243,45 @@ function handlePullToRefresh() {
     });
 }
 
+// Initialize App
 document.addEventListener("DOMContentLoaded", () => {
     console.log("DOM fully loaded at", new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+    
+    // Check DOM Elements
+    if (!newsContainer || !searchInput || !languageSelect || !categoryButtons) {
+        console.error("Critical DOM elements missing:", { newsContainer, searchInput, languageSelect, categoryButtons });
+        document.body.innerHTML = '<p class="error">App initialization failed: Critical DOM elements missing.</p>';
+        return;
+    }
+
+    // Apply Theme
     if (localStorage.getItem("theme") === "dark") {
         document.body.classList.add("dark-mode");
     }
+
+    // Initial Fetch
     page = 1;
     fetchNews();
+
+    // Add Event Listeners
     handlePullToRefresh();
+    searchInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+            console.log("Search triggered via Enter key");
+            searchNews();
+        }
+    });
 });
 
-searchInput?.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") {
-        console.log("Search triggered via Enter key");
-        searchNews();
+// Global Error Handler
+window.onerror = function (message, source, lineno, colno, error) {
+    console.error("Global error:", { message, source, lineno, colno, error });
+    if (newsContainer) {
+        newsContainer.innerHTML = `
+            <p class="error">
+                An unexpected error occurred: ${message}<br>
+                Please try refreshing the app or testing in a browser.
+            </p>
+        `;
     }
-});
+};
