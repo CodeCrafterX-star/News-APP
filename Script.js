@@ -16,14 +16,14 @@ const mockResponse = {
             description: "This is a sample news article for testing purposes.",
             url: "https://example.com/article1",
             urlToImage: "https://via.placeholder.com/300x160?text=Sample+Image+1",
-            publishedAt: "2025-05-26T08:08:00Z"
+            publishedAt: "2025-05-26T08:58:00Z"
         },
         {
             title: "Sample News Article 2",
             description: "Another sample news article for testing.",
             url: "https://example.com/article2",
             urlToImage: "https://via.placeholder.com/300x160?text=Sample+Image+2",
-            publishedAt: "2025-05-26T08:08:00Z"
+            publishedAt: "2025-05-26T08:58:00Z"
         }
     ]
 };
@@ -36,14 +36,14 @@ const mockBengaliResponse = {
             description: "এটি পরীক্ষার জন্য একটি নমুনা সংবাদ নিবন্ধ।",
             url: "https://example.com/bengali-article1",
             urlToImage: "https://via.placeholder.com/300x160?text=Sample+Bengali+Image+1",
-            publishedAt: "2025-05-26T08:08:00Z"
+            publishedAt: "2025-05-26T08:58:00Z"
         },
         {
             title: "নমুনা সংবাদ নিবন্ধ ২",
             description: "আরেকটি নমুনা সংবাদ নিবন্ধ পরীক্ষার জন্য।",
             url: "https://example.com/bengali-article2",
             urlToImage: "https://via.placeholder.com/300x160?text=Sample+Bengali+Image+2",
-            publishedAt: "2025-05-26T08:08:00Z"
+            publishedAt: "2025-05-26T08:58:00Z"
         }
     ]
 };
@@ -51,6 +51,7 @@ const mockBengaliResponse = {
 // State
 let page = 1;
 let currentQuery = "top-headlines";
+let isLoading = false;
 
 // Fetch News Function
 async function fetchNews(query = "top-headlines", pageNum = 1, retries = 2) {
@@ -61,10 +62,20 @@ async function fetchNews(query = "top-headlines", pageNum = 1, retries = 2) {
         return;
     }
 
+    // Prevent multiple simultaneous fetches
+    if (isLoading) return;
+    isLoading = true;
+
     // Update State
     currentQuery = query;
     if (pageNum === 1) {
         newsContainer.innerHTML = '<p class="loading">Loading...</p>';
+    } else {
+        // Add a temporary loading indicator for pagination
+        const loadingDiv = document.createElement("div");
+        loadingDiv.classList.add("loading");
+        loadingDiv.textContent = "Loading more...";
+        newsContainer.appendChild(loadingDiv);
     }
     updateActiveCategory(query);
 
@@ -99,6 +110,7 @@ async function fetchNews(query = "top-headlines", pageNum = 1, retries = 2) {
 
             if (data.articles?.length > 0) {
                 displayNews(data.articles, pageNum);
+                isLoading = false;
                 return;
             } else {
                 throw new Error("No news articles found in the response.");
@@ -115,15 +127,25 @@ async function fetchNews(query = "top-headlines", pageNum = 1, retries = 2) {
                         Using mock data for now. Rate limit resets on May 27, 2025.
                     `;
                 }
-                newsContainer.innerHTML = `
-                    <p class="error">${errorMessage}</p>
-                    <button class="retry-btn" onclick="fetchNews('${query}', ${pageNum})">Retry</button>
-                `;
+                if (pageNum === 1) {
+                    newsContainer.innerHTML = `
+                        <p class="error">${errorMessage}</p>
+                        <button class="retry-btn" onclick="fetchNews('${query}', ${pageNum})">Retry</button>
+                    `;
+                } else {
+                    // Remove loading indicator for pagination
+                    newsContainer.removeChild(newsContainer.lastChild);
+                    const errorDiv = document.createElement("div");
+                    errorDiv.classList.add("error");
+                    errorDiv.innerHTML = errorMessage + `<br><button class="retry-btn" onclick="fetchNews('${query}', ${pageNum})">Retry</button>`;
+                    newsContainer.appendChild(errorDiv);
+                }
                 displayNews(mockData, pageNum);
             }
             console.warn(`Retry ${i + 1}/${retries} failed: ${error.message}`);
         }
     }
+    isLoading = false;
 }
 
 // Display News Articles
@@ -131,6 +153,11 @@ function displayNews(articles, pageNum) {
     if (!newsContainer) {
         console.error("newsContainer is null");
         return;
+    }
+
+    // Remove loading indicator
+    if (newsContainer.lastChild?.classList?.contains("loading")) {
+        newsContainer.removeChild(newsContainer.lastChild);
     }
 
     // Clear container only on the first page
@@ -146,7 +173,6 @@ function displayNews(articles, pageNum) {
 
         const newsCard = document.createElement("div");
         newsCard.classList.add("news-card");
-        newsCard.style.animationDelay = `${index * 0.1}s`;
 
         const imageUrl = article.urlToImage || article.image || "https://via.placeholder.com/300x160?text=No+Image";
         const description = article.description || article.content || "No description available.";
@@ -166,10 +192,18 @@ function displayNews(articles, pageNum) {
 
     // Add Load More button if more articles might be available
     if (articles.length >= 10) {
+        const existingLoadMore = newsContainer.querySelector(".load-more");
+        if (existingLoadMore) {
+            newsContainer.removeChild(existingLoadMore);
+        }
         const loadMoreButton = document.createElement("button");
         loadMoreButton.classList.add("load-more");
         loadMoreButton.textContent = "Load More";
-        loadMoreButton.onclick = () => fetchNews(currentQuery, pageNum + 1);
+        loadMoreButton.onclick = () => {
+            loadMoreButton.disabled = true;
+            loadMoreButton.textContent = "Loading...";
+            fetchNews(currentQuery, pageNum + 1);
+        };
         newsContainer.appendChild(loadMoreButton);
     }
 }
